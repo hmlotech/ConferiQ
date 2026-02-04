@@ -1,0 +1,62 @@
+
+export enum SessionType {
+  ORAL = 'Oral',
+  POSTER = 'Poster',
+  KEYNOTE = 'Keynote',
+  SYMPOSIUM = 'Symposium',
+  BOOTH = 'Booth'
+}
+
+export enum CoverageStatus {
+  UNASSIGNED = 'Unassigned',
+  ASSIGNED = 'Assigned',
+  IN_PROGRESS = 'In Progress',
+  COMPLETE = 'Complete',
+  MISSED = 'Missed'
+}
+
+export enum Priority {
+  CRITICAL = 'Critical',
+  HIGH = 'High',
+  MEDIUM = 'Medium',
+  LOW = 'Low'
+}
+
+export interface User {
+  id: string;
+  name: string;
+  avatar: string;
+  role: 'Admin' | 'Analyst' | 'Lead';
+}
+
+export interface Session {
+  id: string;
+  title: string;
+  abstractId: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  track: string;
+  type: SessionType;
+  priority: Priority;
+  status: CoverageStatus;
+  assignedTo: User[];
+  matchScore?: number; // AI match score
+}
+
+export interface DateTab {
+  label: string;
+  date: string;
+  isActive: boolean;
+}
+
+export interface Activity {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  action: string;
+  target: string; // The session title or object name
+  timestamp: string; // ISO string
+  type: 'update' | 'assignment' | 'alert' | 'upload' | 'complete';
+}
