@@ -1,20 +1,36 @@
 import React, { useState } from 'react';
 import { Icons, Button, Badge, Avatar, cn } from './UIComponents';
-import { DATE_TABS, SESSIONS, CONFERENCES } from '../constants';
+import { DATE_TABS, SESSIONS, CONFERENCES, USERS } from '../constants';
+import { Priority } from '../types';
 
 interface ConferenceDetailViewProps {
     conferenceId: string | null;
     onBack: () => void;
+    onNavigate: (view: string, id?: string) => void;
 }
 
-export const ConferenceDetailView = ({ conferenceId, onBack }: ConferenceDetailViewProps) => {
+export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: ConferenceDetailViewProps) => {
+    const [selectedDate, setSelectedDate] = useState<string>('All Days');
+    const [selectedPriority, setSelectedPriority] = useState<string>('All Priorities');
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+    const [isDaySummaryOpen, setIsDaySummaryOpen] = useState(false);
+    const [localSessions, setLocalSessions] = useState(SESSIONS);
+
     const conference = CONFERENCES.find(c => c.id === conferenceId) || CONFERENCES[0];
 
-    // Group global sessions by date for display
-    const groupedPresentations = Array.from(new Set(SESSIONS.map(s => s.date)))
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map(date => {
-            const daySessions = SESSIONS.filter(s => s.date === date);
+    // Filter sessions based on selected date AND priority
+    const filteredSessions = localSessions.filter(s => {
+        const dateMatch = selectedDate === 'All Days' || s.date === selectedDate;
+        const priorityMatch = selectedPriority === 'All Priorities' || s.priority === selectedPriority;
+        return dateMatch && priorityMatch;
+    });
+
+    // Group filtered sessions by date for display
+    const sessionDates: string[] = Array.from(new Set(filteredSessions.map(s => s.date as string)));
+    const groupedPresentations = sessionDates
+        .sort((a: string, b: string) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date: string) => {
+            const daySessions = filteredSessions.filter(s => s.date === date);
             const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
                 month: 'short',
                 day: '2-digit',
@@ -23,17 +39,22 @@ export const ConferenceDetailView = ({ conferenceId, onBack }: ConferenceDetailV
             return {
                 date: formattedDate,
                 count: daySessions.length,
-                items: daySessions.map(s => ({
-                    id: s.abstractId || s.id,
-                    title: s.title,
-                    time: s.startTime,
-                    status: s.status,
-                    tags: [s.track],
-                    assignedTo: s.assignedTo.length > 0 ? s.assignedTo[0].name : "Unassigned",
-                    priority: s.priority
-                }))
+                items: daySessions
             };
         });
+
+    const selectedSession = localSessions.find(s => s.id === selectedSessionId);
+
+    const handleUpdatePriority = (id: string, priority: Priority) => {
+        setLocalSessions(prev => prev.map(s => s.id === id ? { ...s, priority } : s));
+    };
+
+    const handleUpdateAssignment = (id: string, userName: string) => {
+        const user = USERS.find(u => u.name === userName);
+        if (user) {
+            setLocalSessions(prev => prev.map(s => s.id === id ? { ...s, assignedTo: [user] } : s));
+        }
+    };
 
     const activities = [
         {
@@ -89,12 +110,21 @@ export const ConferenceDetailView = ({ conferenceId, onBack }: ConferenceDetailV
             <header className="px-8 py-6 bg-white border-b border-slate-200">
                 <div className="flex items-start justify-between">
                     <div className="flex flex-col gap-4">
-                        <button
-                            onClick={onBack}
-                            className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-bold"
-                        >
-                            <Icons.ChevronLeft className="w-4 h-4" /> Back
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={onBack}
+                                className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-bold"
+                            >
+                                <Icons.ChevronLeft className="w-4 h-4" /> Back
+                            </button>
+                            <div className="h-4 w-px bg-slate-200" />
+                            <button
+                                onClick={() => onNavigate('planner', conferenceId || undefined)}
+                                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 transition-colors text-sm font-bold"
+                            >
+                                <Icons.Planner className="w-4 h-4" /> Planner
+                            </button>
+                        </div>
                         <div className="flex items-center gap-4">
                             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{conference.title}</h1>
                         </div>
@@ -139,26 +169,61 @@ export const ConferenceDetailView = ({ conferenceId, onBack }: ConferenceDetailV
                                     <p className="text-slate-400 text-sm">{SESSIONS.length} total presentations</p>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Button className="bg-slate-900 text-white hover:bg-slate-800 gap-2 rounded-xl text-xs font-bold py-2 px-4 shadow-none">
-                                        <Icons.FileText className="w-4 h-4" /> Conference Report
-                                    </Button>
-                                    <div className="flex bg-slate-100 p-1 rounded-xl">
-                                        <button className="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm">All</button>
-                                        <button className="px-4 py-1.5 text-slate-500 rounded-lg text-xs font-bold hover:text-slate-800">Upcoming (6)</button>
+                                    <div className="flex gap-4">
+                                        <Button className="bg-slate-900 text-white hover:bg-slate-800 gap-2 rounded-xl text-xs font-bold py-2 px-6 shadow-none h-11">
+                                            <Icons.FileText className="w-4 h-4" /> Conference Report
+                                        </Button>
+                                        <div className="flex bg-slate-100 p-1 rounded-xl h-11">
+                                            <button className="px-5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm">All</button>
+                                            <button className="px-5 py-1.5 text-slate-500 rounded-lg text-xs font-bold hover:text-slate-800">Upcoming ({filteredSessions.length})</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
-                                <span className="text-sm font-medium text-slate-500">Date:</span>
-                                <div className="relative group">
-                                    <select className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 pr-10 min-w-[160px]">
-                                        <option>All Days</option>
+                            <div className="flex items-center gap-6">
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Display:</span>
+                                    <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200">
+                                        <button
+                                            onClick={() => setSelectedDate('All Days')}
+                                            className={cn(
+                                                "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                                selectedDate === 'All Days' ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                                            )}
+                                        >
+                                            All Days
+                                        </button>
                                         {DATE_TABS.map(tab => (
-                                            <option key={tab.date} value={tab.date}>{tab.label}, 2026</option>
+                                            <button
+                                                key={tab.date}
+                                                onClick={() => setSelectedDate(tab.date)}
+                                                className={cn(
+                                                    "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
+                                                    selectedDate === tab.date ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                                                )}
+                                            >
+                                                {tab.label}
+                                            </button>
                                         ))}
-                                    </select>
-                                    <Icons.ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-4">
+                                    <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Priority:</span>
+                                    <div className="relative group">
+                                        <select
+                                            value={selectedPriority}
+                                            onChange={(e) => setSelectedPriority(e.target.value)}
+                                            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold text-slate-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 pr-10 min-w-[150px]"
+                                        >
+                                            <option value="All Priorities">All Priorities</option>
+                                            {Object.values(Priority).map(p => (
+                                                <option key={p} value={p}>{p}</option>
+                                            ))}
+                                        </select>
+                                        <Icons.ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -174,63 +239,102 @@ export const ConferenceDetailView = ({ conferenceId, onBack }: ConferenceDetailV
                                                 {group.count} presentations
                                             </Badge>
                                         </div>
-                                        <Button variant="outline" className="text-xs font-bold border-slate-200 text-slate-600 gap-2 py-1.5 rounded-xl">
-                                            <Icons.Grid className="w-4 h-4" /> Day Summary
+                                        <Button
+                                            onClick={() => setIsDaySummaryOpen(true)}
+                                            variant="outline"
+                                            className="text-xs font-bold border-slate-200 text-slate-600 gap-2 py-1.5 rounded-xl hover:bg-slate-50"
+                                        >
+                                            <Icons.AI className="w-4 h-4 text-purple-500" /> Day Summary AI
                                         </Button>
                                     </div>
 
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                         {group.items.map((item) => (
-                                            <div key={item.id} className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4 hover:shadow-md transition-shadow group">
+                                            <div key={item.id} className="bg-white rounded-xl border border-slate-200 p-4 space-y-3 hover:shadow-md transition-shadow group">
                                                 <div className="flex justify-between items-start">
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">ID: {item.id}</p>
-                                                        <h4 className="text-base font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{item.title}</h4>
+                                                    <div className="space-y-1 flex-1">
+                                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">ID: {item.abstractId || item.id}</p>
+                                                        <h4
+                                                            onClick={() => setSelectedSessionId(item.id)}
+                                                            className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors cursor-pointer leading-tight"
+                                                        >
+                                                            {item.title}
+                                                        </h4>
                                                     </div>
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2 ml-4">
                                                         <div className="relative group/priority">
-                                                            <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-100 transition-colors">
-                                                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">{item.priority}</span>
+                                                            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 cursor-pointer hover:bg-slate-100 transition-colors">
+                                                                <span className={cn(
+                                                                    "text-[9px] font-bold uppercase tracking-wider",
+                                                                    item.priority === Priority.CRITICAL ? "text-red-600" :
+                                                                        item.priority === Priority.HIGH ? "text-orange-600" :
+                                                                            item.priority === Priority.MEDIUM ? "text-blue-600" : "text-slate-500"
+                                                                )}>{item.priority}</span>
                                                                 <Icons.ChevronDown className="w-3 h-3 text-slate-400" />
                                                             </div>
+                                                            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl py-2 min-w-[120px] opacity-0 invisible group-hover/priority:opacity-100 group-hover/priority:visible transition-all z-20">
+                                                                {Object.values(Priority).map(p => (
+                                                                    <button
+                                                                        key={p}
+                                                                        onClick={() => handleUpdatePriority(item.id, p)}
+                                                                        className="w-full text-left px-4 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                                                                    >
+                                                                        {p}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                        <Icons.ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition-colors" />
+                                                        <Icons.ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-400 transition-colors" />
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex items-center gap-1.5 text-slate-400">
-                                                        <Icons.Clock className="w-4 h-4" />
-                                                        <span className="text-xs font-bold uppercase">{item.time}</span>
-                                                    </div>
-                                                    <Badge className="bg-slate-100 text-slate-500 border-none rounded-lg text-[10px] uppercase font-bold px-2 py-0.5 tracking-wider">
-                                                        {item.status}
-                                                    </Badge>
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-2">
-                                                    {item.tags.map((tag, i) => (
-                                                        <span key={i} className="px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                                            {tag}
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex items-center gap-1 text-slate-400">
+                                                            <Icons.Clock className="w-3.5 h-3.5" />
+                                                            <span className="text-[10px] font-bold uppercase">{item.startTime}</span>
+                                                        </div>
+                                                        <Badge className="bg-slate-100 text-slate-500 border-none rounded-lg text-[9px] uppercase font-bold px-1.5 py-0.5 tracking-wider">
+                                                            {item.status}
+                                                        </Badge>
+                                                        <span className="px-2 py-0.5 bg-slate-50 border border-slate-100 rounded-lg text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                                                            {item.track}
                                                         </span>
-                                                    ))}
-                                                </div>
-
-                                                <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-xs font-medium text-slate-400">Assigned to:</span>
-                                                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-slate-100 transition-colors">
-                                                            <span className="text-xs font-bold text-slate-700">{item.assignedTo}</span>
-                                                            <Icons.ChevronDown className="w-3 h-3 text-slate-400" />
-                                                        </div>
                                                     </div>
-                                                    <div className="flex gap-2">
-                                                        <Button variant="outline" className="text-[10px] font-bold border-slate-200 text-slate-600 gap-2 py-1.5 rounded-xl h-9 px-4">
-                                                            <Icons.Upload className="w-3.5 h-3.5" /> Add Files
-                                                        </Button>
-                                                        <Button variant="outline" className="text-[10px] font-bold border-slate-200 text-slate-600 gap-2 py-1.5 rounded-xl h-9 px-4">
-                                                            <Icons.FileText className="w-3.5 h-3.5" /> Summarize
-                                                        </Button>
+
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-tight">Assigned:</span>
+                                                            <div className="relative group/assignee">
+                                                                <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 cursor-pointer hover:bg-slate-100 transition-all">
+                                                                    <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                                                        {item.assignedTo[0]?.name.charAt(0) || "U"}
+                                                                    </div>
+                                                                    <span className="text-xs font-extrabold text-slate-800">{item.assignedTo[0]?.name || "Unassigned"}</span>
+                                                                    <Icons.ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                                                                </div>
+                                                                <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl py-2 min-w-[150px] opacity-0 invisible group-hover/assignee:opacity-100 group-hover/assignee:visible transition-all z-20 max-h-48 overflow-y-auto">
+                                                                    {USERS.map(u => (
+                                                                        <button
+                                                                            key={u.id}
+                                                                            onClick={() => handleUpdateAssignment(item.id, u.name)}
+                                                                            className="w-full text-left px-4 py-2 text-[10px] font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2"
+                                                                        >
+                                                                            <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px]">{u.name.charAt(0)}</div>
+                                                                            {u.name}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-1.5 ml-2">
+                                                            <Button variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-600 gap-1.5 py-1 rounded-lg h-7 px-2.5">
+                                                                <Icons.Upload className="w-3 h-3" /> Files
+                                                            </Button>
+                                                            <Button variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-600 gap-1.5 py-1 rounded-lg h-7 px-2.5">
+                                                                <Icons.FileText className="w-3 h-3" /> Summary
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -284,6 +388,197 @@ export const ConferenceDetailView = ({ conferenceId, onBack }: ConferenceDetailV
                     </div>
                 </div>
             </div>
+
+            {/* Session Detail Modal */}
+            {selectedSessionId && selectedSession && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <Badge variant="blue" className="bg-slate-900 text-white border-none rounded-lg px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider">
+                                        {selectedSession.abstractId || selectedSession.id}
+                                    </Badge>
+                                    <Badge className="bg-white border-slate-200 text-slate-500 rounded-lg px-2 py-0.5 text-[10px] uppercase font-bold">
+                                        {selectedSession.track}
+                                    </Badge>
+                                </div>
+                                <h2 className="text-2xl font-bold text-slate-900 leading-tight">{selectedSession.title}</h2>
+                                <div className="flex items-center gap-6 text-slate-500">
+                                    <div className="flex items-center gap-2">
+                                        <Icons.Planner className="w-4 h-4" />
+                                        <span className="text-xs font-bold">{new Date((selectedSession.date || '') + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Icons.Clock className="w-4 h-4" />
+                                        <span className="text-xs font-bold uppercase">{selectedSession.startTime} - {selectedSession.endTime}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Icons.Location className="w-4 h-4" />
+                                        <span className="text-xs font-bold uppercase">{selectedSession.location}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setSelectedSessionId(null)}
+                                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-400"
+                            >
+                                <Icons.X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-8 overflow-y-auto space-y-8">
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <Icons.Lightbulb className="w-4 h-4 text-orange-500" /> AI Executive Summary
+                                </h3>
+                                <div className="bg-blue-50/50 border border-blue-100/50 rounded-2xl p-6 text-slate-700 leading-relaxed text-sm italic">
+                                    "This session explores the latest clinical advancements in {selectedSession.track}. Key highlights include a focus on novel therapeutic targets and patient outcome data from recent phase III trials. The speaker will discuss the implications for standard of care and future directions in clinical practice."
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Metadata</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                                            <span className="text-xs font-medium text-slate-500">Priority</span>
+                                            <Badge className={cn(
+                                                "border-none rounded-lg px-2 py-0.5 text-[10px] uppercase font-bold",
+                                                selectedSession.priority === Priority.CRITICAL ? "bg-red-50 text-red-600" :
+                                                    selectedSession.priority === Priority.HIGH ? "bg-orange-50 text-orange-600" :
+                                                        "bg-blue-50 text-blue-600"
+                                            )}>{selectedSession.priority}</Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                                            <span className="text-xs font-medium text-slate-500">Coverage Status</span>
+                                            <Badge className="bg-slate-100 text-slate-600 border-none rounded-lg px-2 py-0.5 text-[10px] uppercase font-bold">{selectedSession.status}</Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                                            <span className="text-xs font-medium text-slate-500">Assigned To</span>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold">{selectedSession.assignedTo[0]?.name.charAt(0)}</div>
+                                                <span className="text-xs font-bold text-slate-700">{selectedSession.assignedTo[0]?.name || "Unassigned"}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Documents ({selectedSession.documents?.length || 0})</h3>
+                                    <div className="space-y-2">
+                                        {selectedSession.documents && selectedSession.documents.length > 0 ? (
+                                            selectedSession.documents.map(doc => (
+                                                <div key={doc.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                                    <div className="flex items-center gap-3">
+                                                        <Icons.FileText className="w-4 h-4 text-blue-500" />
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[120px]">{doc.name}</span>
+                                                            <span className="text-[9px] text-slate-400 uppercase font-bold">{doc.size}</span>
+                                                        </div>
+                                                    </div>
+                                                    <button className="text-slate-400 hover:text-slate-900 transition-colors">
+                                                        <Icons.More className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                                <Icons.FileText className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">No User Documents</p>
+                                            </div>
+                                        )}
+                                        <button className="w-full py-2 border-2 border-dashed border-slate-200 rounded-xl text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:border-blue-400 hover:text-blue-500 transition-all flex items-center justify-center gap-2 group">
+                                            <Icons.Plus className="w-3.5 h-3.5" /> Add Document
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                            <Button
+                                onClick={() => setSelectedSessionId(null)}
+                                variant="outline"
+                                className="px-6 rounded-xl text-xs font-bold h-11 border-slate-200 text-slate-600 hover:bg-white"
+                            >
+                                Close Dashboard
+                            </Button>
+                            <Button className="px-8 rounded-xl text-xs font-bold h-11 bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/10">
+                                Generate Full Report
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Day Summary Modal */}
+            {isDaySummaryOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50/50 to-white">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-purple-100 rounded-2xl text-purple-600">
+                                    <Icons.AI className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900 leading-tight">Day Summary AI</h2>
+                                    <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">{selectedDate === 'All Days' ? 'Full Conference Overview' : `Summary for ${selectedDate}`}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsDaySummaryOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                            >
+                                <Icons.X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-10 overflow-y-auto space-y-10">
+                            <div className="space-y-6">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-purple-500" /> Executive Insights
+                                </h3>
+                                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 shadow-inner relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                                        <Icons.AI className="w-24 h-24 text-purple-900" />
+                                    </div>
+                                    <p className="text-base text-slate-700 leading-relaxed font-medium italic relative z-10">
+                                        "Based on the documents uploaded by {USERS[0].name} and the team for {selectedDate === 'All Days' ? 'the entire conference' : selectedDate}, we've observed a strong focus on oncology advancements. Analysts have documented significant readouts in biomarker-driven therapy, with 85% of high-priority sessions already summarized. Key takeaway: immunotherapies are showing 15% better durability in Phase III readouts presented today."
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 text-center shadow-sm">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Docs Analyzed</p>
+                                    <p className="text-2xl font-bold text-purple-600">{filteredSessions.reduce((acc, s) => acc + (s.documents?.length || 0), 0) || 12}</p>
+                                </div>
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 text-center shadow-sm">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Sessions Covered</p>
+                                    <p className="text-2xl font-bold text-slate-800">{filteredSessions.length}</p>
+                                </div>
+                                <div className="bg-white border border-slate-200 rounded-2xl p-5 text-center shadow-sm">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">AI Confidence</p>
+                                    <p className="text-2xl font-bold text-emerald-500">94%</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+                            <Button
+                                onClick={() => setIsDaySummaryOpen(false)}
+                                variant="outline"
+                                className="px-8 rounded-2xl text-xs font-bold h-12 border-slate-200 text-slate-600 hover:bg-white"
+                            >
+                                Close
+                            </Button>
+                            <Button className="px-10 rounded-2xl text-xs font-bold h-12 bg-slate-900 text-white hover:bg-slate-800 shadow-xl shadow-slate-900/10 gap-2">
+                                <Icons.Download className="w-4 h-4" /> Export Report
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

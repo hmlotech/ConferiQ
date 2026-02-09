@@ -22,7 +22,7 @@ const AppContent = () => {
   const renderView = () => {
     switch (currentView) {
       case 'home': return <HomeView onNavigateDetail={(id) => handleNavigate('conference-detail', id)} onNavigate={handleNavigate} />;
-      case 'conference-detail': return <ConferenceDetailView conferenceId={selectedConferenceId} onBack={() => handleNavigate('home')} />;
+      case 'conference-detail': return <ConferenceDetailView conferenceId={selectedConferenceId} onBack={() => handleNavigate('home')} onNavigate={handleNavigate} />;
       case 'dashboard': return <DashboardView />;
       case 'planner': return <PlannerView conferenceId={selectedConferenceId} onNavigate={handleNavigate} />;
       case 'live': return <LiveCoverageView />;

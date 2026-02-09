@@ -14,17 +14,19 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
     const [isAllDates, setIsAllDates] = useState(true);
     const [selectedTrack, setSelectedTrack] = useState('All Tracks');
     const [allSessions, setAllSessions] = useState(SESSIONS);
+    const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
 
     const activeDate = dates.find(d => d.isActive)?.date;
 
     // Get unique tracks from sessions
     const uniqueTracks = Array.from(new Set(allSessions.map(s => s.track))).sort();
 
-    // Filter sessions based on active date and selected track
+    // Filter sessions based on active date, selected track, and unassigned status
     const filteredSessions = allSessions.filter(s => {
         const dateMatch = isAllDates || s.date === activeDate;
         const trackMatch = selectedTrack === 'All Tracks' || s.track === selectedTrack;
-        return dateMatch && trackMatch;
+        const unassignedMatch = !showUnassignedOnly || s.assignedTo.length === 0;
+        return dateMatch && trackMatch && unassignedMatch;
     });
     const [selectedSession, setSelectedSession] = useState<Session | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -160,6 +162,20 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                                     className="bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20 shadow-sm w-48 placeholder:text-slate-400"
                                 />
                             </div>
+
+                            <Button
+                                onClick={() => setShowUnassignedOnly(!showUnassignedOnly)}
+                                variant={showUnassignedOnly ? "primary" : "ghost"}
+                                className={cn(
+                                    "text-xs font-bold gap-2 rounded-xl h-9 px-4 transition-all whitespace-nowrap",
+                                    showUnassignedOnly
+                                        ? "bg-purple-600 text-white shadow-lg shadow-purple-200"
+                                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-none"
+                                )}
+                            >
+                                <Icons.User className={cn("w-3.5 h-3.5", showUnassignedOnly ? "text-white" : "text-slate-400")} />
+                                Unassigned Sessions {showUnassignedOnly && <Icons.X className="w-3 h-3 ml-1" />}
+                            </Button>
 
                             <div className="h-6 w-px bg-slate-300 mx-2"></div>
 
