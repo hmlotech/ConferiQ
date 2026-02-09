@@ -29,10 +29,19 @@ export interface User {
   role: 'Admin' | 'Analyst' | 'Lead';
 }
 
+export interface SessionFile {
+  id: string;
+  name: string;
+  size: string;
+  type: string;
+  uploadedAt: string;
+}
+
 export interface Session {
   id: string;
   title: string;
   abstractId: string;
+  date: string; // ISO format: YYYY-MM-DD
   startTime: string;
   endTime: string;
   location: string;
@@ -42,6 +51,7 @@ export interface Session {
   status: CoverageStatus;
   assignedTo: User[];
   matchScore?: number; // AI match score
+  documents?: SessionFile[];
 }
 
 export interface DateTab {
@@ -59,4 +69,17 @@ export interface Activity {
   target: string; // The session title or object name
   timestamp: string; // ISO string
   type: 'update' | 'assignment' | 'alert' | 'upload' | 'complete';
+}
+
+export interface Conference {
+  id: string;
+  title: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  attendees: string;
+  competitors: number;
+  priority: 'high' | 'medium' | 'low';
+  status: 'upcoming' | 'completed';
+  therapeuticAreas: string[];
 }

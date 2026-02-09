@@ -156,13 +156,7 @@ export const LiveCoverageView = () => {
                     </div>
 
                     {/* Card 3 */}
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-24">
-                        <span className="text-sm font-semibold text-slate-700">Left Out Sessions</span>
-                        <div className="flex items-end justify-between">
-                            <div className="text-xs text-slate-500 font-medium"><span className="text-red-500 font-bold text-lg">4</span> Missed Sessions</div>
-                            <span className="bg-red-400 text-white text-xs font-bold px-2 py-1 rounded">14.3%</span>
-                        </div>
-                    </div>
+
 
                     {/* Card 4 (Decorative) */}
                     <div className="bg-slate-100/50 p-4 rounded-xl border border-slate-200/50 shadow-inner flex items-center justify-center h-24 relative overflow-hidden">
