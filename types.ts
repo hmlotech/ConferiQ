@@ -80,6 +80,6 @@ export interface Conference {
   attendees: string;
   competitors: number;
   priority: 'high' | 'medium' | 'low';
-  status: 'upcoming' | 'completed';
+  status: 'upcoming' | 'completed' | 'ongoing';
   therapeuticAreas: string[];
 }

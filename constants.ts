@@ -14,6 +14,18 @@ export const CONFERENCES: Conference[] = [
     therapeuticAreas: ['Lung Cancer', 'Breast Cancer', 'Melanoma', 'Immunotherapy']
   },
   {
+    id: 'ongoing-1',
+    title: 'WCLC 2026 - World Conference on Lung Cancer',
+    startDate: 'Feb 7, 2026',
+    endDate: 'Feb 10, 2026',
+    location: 'Barcelona, Spain',
+    attendees: '7,500 expected attendees',
+    competitors: 3,
+    priority: 'high',
+    status: 'ongoing',
+    therapeuticAreas: ['NSCLC', 'SCLC', 'Mesothelioma']
+  },
+  {
     id: '2',
     title: 'ACC Scientific Session 2026',
     startDate: 'Mar 14, 2026',
@@ -38,6 +50,18 @@ export const CONFERENCES: Conference[] = [
     therapeuticAreas: ['Alzheimer\'s', 'Multiple Sclerosis', 'Parkinson\'s', 'Epilepsy']
   },
   {
+    id: 'comp-1',
+    title: 'ASH Annual Meeting 2025',
+    startDate: 'Dec 6, 2025',
+    endDate: 'Dec 9, 2025',
+    location: 'New Orleans, LA, USA',
+    attendees: '30,000 attendees',
+    competitors: 6,
+    priority: 'high',
+    status: 'completed',
+    therapeuticAreas: ['Hematology', 'Leukemia', 'Lymphoma']
+  },
+  {
     id: '4',
     title: 'EULAR European Congress 2026',
     startDate: 'Jun 10, 2026',
@@ -48,6 +72,42 @@ export const CONFERENCES: Conference[] = [
     priority: 'high',
     status: 'upcoming',
     therapeuticAreas: ['Rheumatoid Arthritis', 'Lupus', 'Psoriatic Arthritis']
+  },
+  {
+    id: 'up-1',
+    title: 'ESMO Congress 2026',
+    startDate: 'Sep 18, 2026',
+    endDate: 'Sep 22, 2026',
+    location: 'Paris, France',
+    attendees: '25,000 expected attendees',
+    competitors: 5,
+    priority: 'high',
+    status: 'upcoming',
+    therapeuticAreas: ['Genitourinary Cancer', 'GI Cancer', 'Precision Medicine']
+  },
+  {
+    id: 'ongoing-2',
+    title: 'SITC Annual Meeting 2026',
+    startDate: 'Feb 8, 2026',
+    endDate: 'Feb 11, 2026',
+    location: 'National Harbor, MD, USA',
+    attendees: '5,000 expected attendees',
+    competitors: 2,
+    priority: 'medium',
+    status: 'ongoing',
+    therapeuticAreas: ['Immunotherapy', 'Tumor Immunology']
+  },
+  {
+    id: 'comp-2',
+    title: 'San Antonio Breast Cancer Symposium 2025',
+    startDate: 'Dec 9, 2025',
+    endDate: 'Dec 13, 2025',
+    location: 'San Antonio, TX, USA',
+    attendees: '10,000 attendees',
+    competitors: 4,
+    priority: 'high',
+    status: 'completed',
+    therapeuticAreas: ['Breast Cancer', 'HER2+', 'Triple Negative']
   }
 ];
 

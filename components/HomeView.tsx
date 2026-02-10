@@ -7,6 +7,23 @@ import { CONFERENCES } from '../constants';
 export const HomeView = ({ onNavigateDetail, onNavigate }: { onNavigateDetail: (id: string) => void, onNavigate: (view: any) => void }) => {
     const [activeTab, setActiveTab] = useState('all');
 
+    // Sorting and Filtering Logic
+    const sortedConferences = [...CONFERENCES].sort((a, b) =>
+        new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+
+    const filteredConferences = sortedConferences.filter(conf => {
+        if (activeTab === 'all') return true;
+        return conf.status === activeTab;
+    });
+
+    const stats = {
+        total: CONFERENCES.length,
+        upcoming: CONFERENCES.filter(c => c.status === 'upcoming').length,
+        completed: CONFERENCES.filter(c => c.status === 'completed').length,
+        ongoing: CONFERENCES.filter(c => c.status === 'ongoing').length
+    };
+
     return (
         <div className="flex-1 flex flex-col h-full bg-[#F8FAFC] overflow-hidden font-sans">
             {/* Header */}
@@ -33,7 +50,7 @@ export const HomeView = ({ onNavigateDetail, onNavigate }: { onNavigateDetail: (
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between relative overflow-hidden group">
                         <div>
                             <p className="text-slate-500 text-sm font-medium mb-1">Total Conferences</p>
-                            <h2 className="text-4xl font-extrabold text-slate-800">9</h2>
+                            <h2 className="text-4xl font-extrabold text-slate-800">{stats.total}</h2>
                         </div>
                         <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
                             <Icons.Grid className="w-8 h-8 opacity-40" />
@@ -42,8 +59,8 @@ export const HomeView = ({ onNavigateDetail, onNavigate }: { onNavigateDetail: (
 
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between relative overflow-hidden group">
                         <div>
-                            <p className="text-slate-500 text-sm font-medium mb-1">Upcoming</p>
-                            <h2 className="text-4xl font-extrabold text-blue-600">7</h2>
+                            <p className="text-slate-500 text-sm font-medium mb-1">Upcoming / Ongoing</p>
+                            <h2 className="text-4xl font-extrabold text-blue-600">{stats.upcoming + stats.ongoing}</h2>
                         </div>
                         <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
                             <Icons.TrendingUp className="w-8 h-8 opacity-40" />
@@ -53,7 +70,7 @@ export const HomeView = ({ onNavigateDetail, onNavigate }: { onNavigateDetail: (
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between relative overflow-hidden group">
                         <div>
                             <p className="text-slate-500 text-sm font-medium mb-1">Completed</p>
-                            <h2 className="text-4xl font-extrabold text-slate-800">2</h2>
+                            <h2 className="text-4xl font-extrabold text-slate-800">{stats.completed}</h2>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-xl text-slate-400">
                             <Icons.TrendingUp className="w-8 h-8 opacity-20" />
@@ -62,26 +79,24 @@ export const HomeView = ({ onNavigateDetail, onNavigate }: { onNavigateDetail: (
                 </div>
 
                 {/* Filters Tabs */}
-                <div className="flex items-center gap-2">
-                    {['All Conferences', 'Upcoming', 'Completed'].map((tab) => {
-                        const id = tab.toLowerCase().split(' ')[0];
-                        const isActive = activeTab === id;
-                        return (
-                            <button
-                                key={id}
-                                onClick={() => setActiveTab(id)}
-                                className={cn(
-                                    "px-4 py-2 rounded-xl text-sm font-bold transition-all",
-                                    isActive
-                                        ? "bg-slate-800 text-white shadow-md shadow-slate-200"
-                                        : "text-slate-500 hover:bg-slate-200/50"
-                                )}
-                            >
-                                {tab}
-                            </button>
-                        )
-                    })}
-                </div>
+                {['All Conferences', 'Upcoming', 'Ongoing', 'Completed'].map((tab) => {
+                    const id = tab.toLowerCase().split(' ')[0];
+                    const isActive = activeTab === id;
+                    return (
+                        <button
+                            key={id}
+                            onClick={() => setActiveTab(id)}
+                            className={cn(
+                                "px-4 py-2 rounded-xl text-sm font-bold transition-all",
+                                isActive
+                                    ? "bg-slate-800 text-white shadow-md shadow-slate-200"
+                                    : "text-slate-500 hover:bg-slate-200/50"
+                            )}
+                        >
+                            {tab} {tab !== 'All Conferences' && `(${stats[id as keyof typeof stats]})`}
+                        </button>
+                    )
+                })}
 
                 {/* Main Content Layout */}
                 <div className="flex gap-8">
@@ -145,13 +160,21 @@ export const HomeView = ({ onNavigateDetail, onNavigate }: { onNavigateDetail: (
 
                     {/* Conference Cards Grid */}
                     <div className="flex-1 grid grid-cols-1 2xl:grid-cols-2 gap-6 pb-8">
-                        {CONFERENCES.map((conf) => (
+                        {filteredConferences.map((conf) => (
                             <div key={conf.id} className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all group flex flex-col relative overflow-hidden">
                                 <div className="flex justify-between items-start mb-6">
                                     <h3 className="text-xl font-bold text-slate-800 pr-12 line-clamp-1">{conf.title}</h3>
                                     <div className="flex flex-col gap-2 items-end flex-shrink-0">
                                         <div className="flex gap-2">
-                                            <Badge variant="blue" className="bg-blue-50 text-blue-700 border-blue-100 rounded-lg px-3 py-1 text-[10px] uppercase font-bold tracking-wider">
+                                            <Badge
+                                                variant={conf.status === 'ongoing' ? 'emerald' : conf.status === 'upcoming' ? 'blue' : 'slate'}
+                                                className={cn(
+                                                    "rounded-lg px-3 py-1 text-[10px] uppercase font-bold tracking-wider",
+                                                    conf.status === 'ongoing' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                                                        conf.status === 'upcoming' ? "bg-blue-50 text-blue-700 border-blue-100" :
+                                                            "bg-slate-50 text-slate-600 border-slate-100"
+                                                )}
+                                            >
                                                 {conf.status}
                                             </Badge>
                                         </div>
