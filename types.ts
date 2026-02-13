@@ -39,6 +39,7 @@ export interface SessionFile {
 
 export interface Session {
   id: string;
+  conferenceId: string;
   title: string;
   abstractId: string;
   date: string; // ISO format: YYYY-MM-DD
@@ -50,6 +51,8 @@ export interface Session {
   priority: Priority;
   status: CoverageStatus;
   assignedTo: User[];
+  roomNo?: string;
+  speakers?: string[];
   matchScore?: number; // AI match score
   documents?: SessionFile[];
 }
@@ -82,4 +85,5 @@ export interface Conference {
   priority: 'high' | 'medium' | 'low';
   status: 'upcoming' | 'completed' | 'ongoing';
   therapeuticAreas: string[];
+  logo?: string; // Conference logo URL or emoji
 }

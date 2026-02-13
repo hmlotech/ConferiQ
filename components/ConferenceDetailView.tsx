@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Icons, Button, Badge, Avatar, cn } from './UIComponents';
-import { DATE_TABS, SESSIONS, CONFERENCES, USERS } from '../constants';
+import { DATE_TABS, SESSIONS, USERS } from '../constants';
 import { Priority } from '../types';
+import { useConference } from '../contexts/ConferenceContext';
 
 interface ConferenceDetailViewProps {
     conferenceId: string | null;
@@ -10,13 +11,54 @@ interface ConferenceDetailViewProps {
 }
 
 export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: ConferenceDetailViewProps) => {
+    const { conferences, sessions: contextSessions } = useConference();
     const [selectedDate, setSelectedDate] = useState<string>('All Days');
     const [selectedPriority, setSelectedPriority] = useState<string>('All Priorities');
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
     const [isDaySummaryOpen, setIsDaySummaryOpen] = useState(false);
-    const [localSessions, setLocalSessions] = useState(SESSIONS);
+    const [isSessionSummaryOpen, setIsSessionSummaryOpen] = useState(false);
+    const [isConferenceReportOpen, setIsConferenceReportOpen] = useState(false);
+    const [summarySessionId, setSummarySessionId] = useState<string | null>(null);
 
-    const conference = CONFERENCES.find(c => c.id === conferenceId) || CONFERENCES[0];
+    const conference = conferences.find(c => c.id === conferenceId) || conferences[0];
+
+    if (!conference) {
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-sm mb-4">
+                    <Icons.TrendingUp className="w-8 h-8 opacity-20" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Conference Not Found</h3>
+                <p className="text-slate-500 mb-6">We couldn't find the conference you're looking for.</p>
+                <Button onClick={onBack} variant="outline">Back to Home</Button>
+            </div>
+        );
+    }
+
+    const conferenceSessions = contextSessions.filter(s => s.conferenceId === conference.id);
+    const [localSessions, setLocalSessions] = useState(conferenceSessions);
+
+    // Sync local sessions when context sessions or conference changes
+    React.useEffect(() => {
+        setLocalSessions(contextSessions.filter(s => s.conferenceId === conference.id));
+    }, [contextSessions, conference.id]);
+
+    // Helper to generate dates between range
+    const generateDateTabs = (startStr: string, endStr: string) => {
+        const start = new Date(startStr);
+        const end = new Date(endStr);
+        const tabs = [];
+        let curr = new Date(start);
+        while (curr <= end) {
+            const dateStr = curr.toISOString().split('T')[0];
+            const label = curr.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            tabs.push({ label, date: dateStr, isActive: false });
+            curr.setDate(curr.getDate() + 1);
+        }
+        return tabs;
+    };
+
+    const conferenceDates = generateDateTabs(conference.startDate, conference.endDate);
 
     // Filter sessions based on selected date AND priority
     const filteredSessions = localSessions.filter(s => {
@@ -112,10 +154,10 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                     <div className="flex flex-col gap-4">
                         <div className="flex items-center gap-4">
                             <button
-                                onClick={onBack}
-                                className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-bold"
+                                onClick={() => onNavigate('home')}
+                                className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100"
                             >
-                                <Icons.ChevronLeft className="w-4 h-4" /> Back
+                                <Icons.Home className="w-4 h-4" /> Home
                             </button>
                             <div className="h-4 w-px bg-slate-200" />
                             <button
@@ -125,12 +167,21 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                                 <Icons.Planner className="w-4 h-4" /> Planner
                             </button>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{conference.title}</h1>
+                        <div className="flex items-center gap-5">
+                            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 border border-slate-200 shadow-sm overflow-hidden">
+                                {conference.logo && conference.logo.startsWith('/') ? (
+                                    <img src={conference.logo} alt={conference.title} className="w-full h-full object-contain p-2" />
+                                ) : (
+                                    conference.logo || '🎯'
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <h1 className="text-3xl font-bold text-slate-900 tracking-tight leading-tight">{conference.title}</h1>
+                                <p className="text-slate-400 text-sm font-medium">
+                                    {new Date(conference.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(conference.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} <span className="mx-2">•</span> {conference.location}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-slate-400 text-sm font-medium">
-                            {new Date(conference.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(conference.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} <span className="mx-2">•</span> {conference.location}
-                        </p>
                     </div>
 
                     <div className="flex gap-4">
@@ -170,7 +221,10 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex gap-4">
-                                        <Button className="bg-slate-900 text-white hover:bg-slate-800 gap-2 rounded-xl text-xs font-bold py-2 px-6 shadow-none h-11">
+                                        <Button
+                                            onClick={() => setIsConferenceReportOpen(true)}
+                                            className="bg-slate-900 text-white hover:bg-slate-800 gap-2 rounded-xl text-xs font-bold py-2 px-6 shadow-none h-11"
+                                        >
                                             <Icons.FileText className="w-4 h-4" /> Conference Report
                                         </Button>
                                         <div className="flex bg-slate-100 p-1 rounded-xl h-11">
@@ -183,7 +237,7 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
 
                             <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-4">
-                                    <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Display:</span>
+                                    <span className="text-sm font-bold text-slate-500 uppercase tracking-tight">Dates:</span>
                                     <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200">
                                         <button
                                             onClick={() => setSelectedDate('All Days')}
@@ -194,7 +248,7 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                                         >
                                             All Days
                                         </button>
-                                        {DATE_TABS.map(tab => (
+                                        {conferenceDates.map(tab => (
                                             <button
                                                 key={tab.date}
                                                 onClick={() => setSelectedDate(tab.date)}
@@ -292,8 +346,14 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                                                     <div className="flex items-center gap-4">
                                                         <div className="flex items-center gap-1 text-slate-400">
                                                             <Icons.Clock className="w-3.5 h-3.5" />
-                                                            <span className="text-[10px] font-bold uppercase">{item.startTime}</span>
+                                                            <span className="text-[10px] font-bold uppercase">{item.startTime} - {item.endTime}</span>
                                                         </div>
+                                                        {item.roomNo && (
+                                                            <div className="flex items-center gap-1 text-slate-400">
+                                                                <Icons.Location className="w-3.5 h-3.5" />
+                                                                <span className="text-[10px] font-bold uppercase">Room {item.roomNo}</span>
+                                                            </div>
+                                                        )}
                                                         <Badge className="bg-slate-100 text-slate-500 border-none rounded-lg text-[9px] uppercase font-bold px-1.5 py-0.5 tracking-wider">
                                                             {item.status}
                                                         </Badge>
@@ -331,7 +391,14 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                                                             <Button variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-600 gap-1.5 py-1 rounded-lg h-7 px-2.5">
                                                                 <Icons.Upload className="w-3 h-3" /> Files
                                                             </Button>
-                                                            <Button variant="outline" className="text-[9px] font-bold border-slate-200 text-slate-600 gap-1.5 py-1 rounded-lg h-7 px-2.5">
+                                                            <Button
+                                                                onClick={() => {
+                                                                    setSummarySessionId(item.id);
+                                                                    setIsSessionSummaryOpen(true);
+                                                                }}
+                                                                variant="outline"
+                                                                className="text-[9px] font-bold border-slate-200 text-slate-600 gap-1.5 py-1 rounded-lg h-7 px-2.5"
+                                                            >
                                                                 <Icons.FileText className="w-3 h-3" /> Summary
                                                             </Button>
                                                         </div>
@@ -506,6 +573,181 @@ export const ConferenceDetailView = ({ conferenceId, onBack, onNavigate }: Confe
                             </Button>
                             <Button className="px-8 rounded-xl text-xs font-bold h-11 bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/10">
                                 Generate Full Report
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Session Summary Modal */}
+            {isSessionSummaryOpen && summarySessionId && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-blue-50/50 to-white">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-2xl text-blue-600">
+                                    <Icons.AI className="w-6 h-6 animate-pulse" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900 leading-tight">AI Session Summary</h2>
+                                    <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">{localSessions.find(s => s.id === summarySessionId)?.title}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsSessionSummaryOpen(false)}
+                                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+                            >
+                                <Icons.X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-10 overflow-y-auto space-y-8">
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500" /> Executive Breakdown
+                                </h3>
+                                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 relative overflow-hidden">
+                                    <p className="text-base text-slate-700 leading-relaxed font-medium italic relative z-10">
+                                        "Synthesizing information from {localSessions.find(s => s.id === summarySessionId)?.documents?.length || 0} uploaded documents. This session presents high-impact clinical data suggesting a shift in standard-of-care for refractory patients. Key findings include a 22% improvement in overall survival compared to standard chemotherapy in the Phase III subgroup analysis."
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Key Takeaways</h4>
+                                    <ul className="space-y-3">
+                                        {[
+                                            "Enhanced durability in HER2-low populations",
+                                            "Manageable toxicities with the new combination",
+                                            "Potential for first-line indication approval"
+                                        ].map((point, i) => (
+                                            <li key={i} className="flex gap-3 text-sm text-slate-600">
+                                                <Icons.Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                                                {point}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <div className="bg-blue-50/30 rounded-2xl p-6 border border-blue-50">
+                                    <h4 className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-3">AI Context Metrics</h4>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="flex justify-between text-xs font-bold mb-1">
+                                                <span>Data Coverage</span>
+                                                <span className="text-blue-600">88%</span>
+                                            </div>
+                                            <div className="h-1.5 w-full bg-blue-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-blue-500 w-[88%]"></div>
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-blue-50 shadow-sm">
+                                            <span className="text-[10px] font-bold text-slate-500">Confidence Score</span>
+                                            <Badge variant="blue" className="bg-blue-600 text-white rounded-lg px-2">9.2</Badge>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+                            <Button
+                                onClick={() => setIsSessionSummaryOpen(false)}
+                                variant="outline"
+                                className="px-8 rounded-2xl text-xs font-bold h-12 border-slate-200 text-slate-600 hover:bg-white"
+                            >
+                                Close
+                            </Button>
+                            <Button className="px-10 rounded-2xl text-xs font-bold h-12 bg-slate-900 text-white hover:bg-slate-800 shadow-xl shadow-slate-900/10 gap-2">
+                                <Icons.Download className="w-4 h-4" /> Download PDF
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Conference Report Modal */}
+            {isConferenceReportOpen && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-white/10 rounded-2xl text-white">
+                                    <Icons.Brain className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold leading-tight">AI Intelligence Report</h2>
+                                    <p className="text-slate-400 text-sm font-bold uppercase tracking-wider">{conference.title} Synthesis</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsConferenceReportOpen(false)}
+                                className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"
+                            >
+                                <Icons.X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        <div className="p-10 overflow-y-auto space-y-10">
+                            <section className="space-y-4">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-3">
+                                    <div className="w-2 h-2 rounded-full bg-slate-800" /> Strategic Overview
+                                </h3>
+                                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 text-slate-700 leading-relaxed">
+                                    <p className="font-medium italic mb-4">
+                                        "Synthesizing across all {localSessions.length} tracked sessions and {localSessions.reduce((acc, s) => acc + (s.documents?.length || 0), 0)} documentation artifacts."
+                                    </p>
+                                    <p>
+                                        The overarching theme of this conference centers on the rapid maturity of bispecific antibodies and personalized vaccine platforms. Competitive signaling indicates a 30% increase in biomarker-driven patient stratification compared to last year's congress.
+                                    </p>
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-2 gap-8">
+                                <section className="space-y-4">
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Top Insight areas</h3>
+                                    <div className="space-y-3">
+                                        {[
+                                            { label: "Oncology Pipeline Velocity", value: "High" },
+                                            { label: "Strategic Enrollment Gaps", value: "Identified" },
+                                            { label: "Payer Consensus Shifts", value: "Moderate" }
+                                        ].map((item, i) => (
+                                            <div key={i} className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                                <span className="text-xs font-bold text-slate-600">{item.label}</span>
+                                                <Badge className="bg-slate-100 text-slate-800 border-none font-bold text-[10px]">{item.value}</Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section className="space-y-4">
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Document Analysis</h3>
+                                    <div className="bg-slate-900 rounded-2xl p-6 text-white text-center">
+                                        <div className="text-4xl font-extrabold mb-2">{localSessions.reduce((acc, s) => acc + (s.documents?.length || 0), 0)}</div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Artifacts Synthesized</p>
+                                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-around">
+                                            <div>
+                                                <div className="text-lg font-bold">12</div>
+                                                <div className="text-[8px] text-slate-400 uppercase">Abstracts</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-lg font-bold">5</div>
+                                                <div className="text-[8px] text-slate-400 uppercase">Slide Decks</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+
+                        <div className="p-8 bg-slate-50 border-t border-slate-100 flex justify-end gap-4">
+                            <Button
+                                onClick={() => setIsConferenceReportOpen(false)}
+                                variant="outline"
+                                className="px-8 rounded-2xl text-xs font-bold h-12 border-slate-200 text-slate-600 hover:bg-white"
+                            >
+                                Close Report
+                            </Button>
+                            <Button className="px-10 rounded-2xl text-xs font-bold h-12 bg-blue-600 text-white hover:bg-blue-700 shadow-xl shadow-blue-600/10 gap-2">
+                                <Icons.Download className="w-4 h-4" /> Export Strategic Brief
                             </Button>
                         </div>
                     </div>

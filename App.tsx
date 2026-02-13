@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Sidebar, View } from './components/Sidebar';
 import { PlannerView } from './components/PlannerView';
@@ -9,6 +8,7 @@ import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { HomeView } from './components/HomeView';
 import { ConferenceDetailView } from './components/ConferenceDetailView';
+import { ConferenceProvider } from './contexts/ConferenceContext';
 
 const AppContent = () => {
   const [currentView, setCurrentView] = useState<View>('home');
@@ -44,5 +44,9 @@ const AppContent = () => {
 }
 
 export default function App() {
-  return <AppContent />;
+  return (
+    <ConferenceProvider>
+      <AppContent />
+    </ConferenceProvider>
+  );
 }

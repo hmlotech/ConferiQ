@@ -102,52 +102,53 @@ export const Avatar = ({ src, fallback, size = 'md', className }: AvatarProps) =
 
 // --- Dialog / Modal ---
 interface DialogProps {
-    isOpen: boolean;
-    onClose: () => void;
-    title: string;
-    children?: React.ReactNode;
-    actions?: React.ReactNode;
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children?: React.ReactNode;
+  actions?: React.ReactNode;
 }
 
 export const Dialog = ({ isOpen, onClose, title, children, actions }: DialogProps) => {
-    if (!isOpen) return null;
+  if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative z-10 animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between p-6 border-b border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
-                        <Icons.X className="w-5 h-5" />
-                    </button>
-                </div>
-                <div className="p-6 overflow-y-auto flex-1 text-sm text-slate-600 leading-relaxed">
-                    {children}
-                </div>
-                {actions && (
-                    <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl flex justify-end gap-3">
-                        {actions}
-                    </div>
-                )}
-            </div>
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col relative z-10 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+            <Icons.X className="w-5 h-5" />
+          </button>
         </div>
-    )
+        <div className="p-6 overflow-y-auto flex-1 text-sm text-slate-600 leading-relaxed">
+          {children}
+        </div>
+        {actions && (
+          <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl flex justify-end gap-3">
+            {actions}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // --- Icons (Lucide wrappers) ---
-import { 
-  LayoutDashboard, Calendar, Radio, FileText, Settings, 
-  Search, Bell, ChevronDown, ChevronRight, ChevronLeft, Plus, 
-  Upload, Sparkles, Filter, Clock, MapPin, 
+import {
+  LayoutDashboard, Calendar, Radio, FileText, Settings,
+  Search, Bell, ChevronDown, ChevronRight, ChevronLeft, Plus,
+  Upload, Sparkles, Filter, Clock, MapPin,
   MoreHorizontal, Users, CheckCircle2, Circle,
   LayoutGrid, List, SlidersHorizontal, ArrowUpRight,
   User, Bookmark, Square, Eye, Download, TrendingUp, Check,
   Lightbulb, Zap, AlertTriangle, MessageSquare, PanelRightClose, PanelRightOpen, Brain,
-  X, Loader2
+  X, Loader2, Home, Trash2
 } from 'lucide-react';
 
 export const Icons = {
+  Home: Home,
   Dashboard: LayoutDashboard,
   Planner: Calendar,
   Live: Radio,
@@ -188,5 +189,5 @@ export const Icons = {
   PanelRightOpen: PanelRightOpen,
   Brain: Brain,
   X: X,
-  Loader: Loader2
+  Loader: Loader2, Trash: Trash2
 };

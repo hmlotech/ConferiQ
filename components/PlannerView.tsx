@@ -2,31 +2,87 @@
 import React, { useState } from 'react';
 import { Icons, Button, Badge, Avatar, cn } from './UIComponents';
 import { AIPanel, AICard } from './AIPanel';
-import { DATE_TABS, AI_SUGGESTIONS, SESSIONS, USERS, CONFERENCES } from '../constants';
+import { USERS, AI_SUGGESTIONS } from '../constants';
+import { useConference } from '../contexts/ConferenceContext';
 import { Session, SessionType, Priority, CoverageStatus } from '../types';
 import { View } from './Sidebar';
 
 export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: string | null, onNavigate?: (view: View, id?: string) => void }) => {
-    const conference = CONFERENCES.find(c => c.id === conferenceId) || CONFERENCES[0];
+    const { conferences, sessions: contextSessions } = useConference();
+    const conference = conferences.find(c => c.id === conferenceId) || conferences[0];
+
+    if (!conference) {
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
+                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-slate-300 shadow-sm mb-4">
+                    <Icons.Planner className="w-8 h-8 opacity-20" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">No Conference Selected</h3>
+                <p className="text-slate-500 mb-6">Create or select a conference to use the planner.</p>
+                <Button onClick={() => onNavigate?.('home')} variant="outline">Back to Home</Button>
+            </div>
+        );
+    }
+
     const users = USERS;
 
-    const [dates, setDates] = useState(DATE_TABS.map(d => ({ ...d, isActive: false }))); // Default none active
+    // Helper to generate dates between range
+    const generateDateTabs = (startStr: string, endStr: string) => {
+        const start = new Date(startStr);
+        const end = new Date(endStr);
+        const tabs = [];
+        let curr = new Date(start);
+        while (curr <= end) {
+            const dateStr = curr.toISOString().split('T')[0];
+            const label = curr.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            tabs.push({ label, date: dateStr, isActive: false });
+            curr.setDate(curr.getDate() + 1);
+        }
+        return tabs;
+    };
+
+    const initialDates = generateDateTabs(conference.startDate, conference.endDate);
+    const [dates, setDates] = useState(initialDates);
     const [isAllDates, setIsAllDates] = useState(true);
     const [selectedTrack, setSelectedTrack] = useState('All Tracks');
-    const [allSessions, setAllSessions] = useState(SESSIONS);
+    const [selectedUser, setSelectedUser] = useState('All Analysts');
+    const [selectedSpeaker, setSelectedSpeaker] = useState('All Speakers');
+    const [selectedPriority, setSelectedPriority] = useState('All Priorities');
+
+    // Filter sessions by conferenceId
+    const conferenceSessions = contextSessions.filter(s => s.conferenceId === conference.id);
+    const [allSessions, setAllSessions] = useState(conferenceSessions);
+
+    // Sync local sessions when context sessions or conferenceId changes
+    React.useEffect(() => {
+        setAllSessions(contextSessions.filter(s => s.conferenceId === conference.id));
+    }, [contextSessions, conference.id]);
     const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+
+    React.useEffect(() => {
+        const newDates = generateDateTabs(conference.startDate, conference.endDate);
+        setDates(newDates);
+        setIsAllDates(true);
+        setSelectedTrack('All Tracks');
+    }, [conferenceId, conference.startDate, conference.endDate]);
 
     const activeDate = dates.find(d => d.isActive)?.date;
 
-    // Get unique tracks from sessions
+    // Get unique values for filters
     const uniqueTracks = Array.from(new Set(allSessions.map(s => s.track))).sort();
+    const uniqueSpeakers = Array.from(new Set(allSessions.flatMap(s => s.speakers || []))).sort();
+    const uniquePriorities = ['Critical', 'High', 'Medium', 'Low'];
 
-    // Filter sessions based on active date, selected track, and unassigned status
+    // Filter sessions based on all criteria
     const filteredSessions = allSessions.filter(s => {
         const dateMatch = isAllDates || s.date === activeDate;
         const trackMatch = selectedTrack === 'All Tracks' || s.track === selectedTrack;
+        const userMatch = selectedUser === 'All Analysts' || s.assignedTo.some(u => u.name === selectedUser);
+        const speakerMatch = selectedSpeaker === 'All Speakers' || s.speakers?.includes(selectedSpeaker);
+        const priorityMatch = selectedPriority === 'All Priorities' || s.priority.toLowerCase() === selectedPriority.toLowerCase();
         const unassignedMatch = !showUnassignedOnly || s.assignedTo.length === 0;
-        return dateMatch && trackMatch && unassignedMatch;
+
+        return dateMatch && trackMatch && userMatch && speakerMatch && priorityMatch && unassignedMatch;
     });
     const [selectedSession, setSelectedSession] = useState<Session | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -83,17 +139,32 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
             <div className="flex-1 flex flex-col h-full bg-[#F3F4F6] overflow-hidden relative font-sans">
                 {/* --- Top Header --- */}
                 <header className="h-18 px-8 py-4 flex items-center justify-between bg-white border-b border-slate-200">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Conference Planner</h1>
-                        <span className="text-slate-400 text-sm">v2.4</span>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => onNavigate?.('home')}
+                            className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors text-sm font-bold bg-slate-100 px-3 py-1.5 rounded-lg"
+                        >
+                            <Icons.Home className="w-4 h-4" /> Home
+                        </button>
+                        <div className="h-6 w-px bg-slate-200" />
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-xl flex-shrink-0 border border-slate-200 shadow-sm overflow-hidden">
+                                {conference.logo && conference.logo.startsWith('/') ? (
+                                    <img src={conference.logo} alt={conference.title} className="w-full h-full object-contain p-1" />
+                                ) : (
+                                    conference.logo || '🎯'
+                                )}
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Conference Planner</h1>
+                        </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <Button
                             variant="primary"
-                            className="pl-4 pr-4 h-10 rounded-xl font-semibold shadow-lg shadow-purple-500/30"
+                            className="pl-4 pr-4 h-10 rounded-xl font-semibold shadow-lg shadow-purple-500/30 uppercase"
                             onClick={() => onNavigate?.('conference-detail', conference.id)}
                         >
-                            CONFERENCE DASHBOARD <Icons.ChevronDown className="ml-2 w-4 h-4 opacity-70" />
+                            CONFERENCE COVERAGE <Icons.ChevronDown className="ml-2 w-4 h-4 opacity-70" />
                         </Button>
                     </div>
                 </header>
@@ -139,8 +210,8 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 overflow-x-auto pb-1 no-scrollbar">
                             <div className="relative inline-block">
-                                <Button variant="ghost" className="gap-2 px-4 bg-purple-100/50 text-purple-700 hover:bg-purple-100 border border-purple-200/50">
-                                    <Icons.Grid className="w-4 h-4" /> {selectedTrack}
+                                <Button variant="ghost" className="gap-2 px-4 bg-purple-100/50 text-purple-700 hover:bg-purple-100 border border-purple-200/50 text-xs h-9">
+                                    <Icons.Grid className="w-3.5 h-3.5" /> {selectedTrack}
                                 </Button>
                                 <select
                                     className="absolute inset-0 opacity-0 cursor-pointer"
@@ -150,6 +221,54 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                                     <option>All Tracks</option>
                                     {uniqueTracks.map(track => (
                                         <option key={track} value={track}>{track}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="relative inline-block">
+                                <Button variant="ghost" className="gap-2 px-4 bg-blue-100/50 text-blue-700 hover:bg-blue-100 border border-blue-200/50 text-xs h-9">
+                                    <Icons.Users className="w-3.5 h-3.5" /> {selectedUser}
+                                </Button>
+                                <select
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    value={selectedUser}
+                                    onChange={(e) => setSelectedUser(e.target.value)}
+                                >
+                                    <option>All Analysts</option>
+                                    {users.map(user => (
+                                        <option key={user.id} value={user.name}>{user.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="relative inline-block">
+                                <Button variant="ghost" className="gap-2 px-4 bg-emerald-100/50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/50 text-xs h-9">
+                                    <Icons.User className="w-3.5 h-3.5" /> {selectedSpeaker}
+                                </Button>
+                                <select
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    value={selectedSpeaker}
+                                    onChange={(e) => setSelectedSpeaker(e.target.value)}
+                                >
+                                    <option>All Speakers</option>
+                                    {uniqueSpeakers.map(speaker => (
+                                        <option key={speaker} value={speaker}>{speaker}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="relative inline-block">
+                                <Button variant="ghost" className="gap-2 px-4 bg-amber-100/50 text-amber-700 hover:bg-amber-100 border border-amber-200/50 text-xs h-9">
+                                    <Icons.Sliders className="w-3.5 h-3.5" /> {selectedPriority}
+                                </Button>
+                                <select
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    value={selectedPriority}
+                                    onChange={(e) => setSelectedPriority(e.target.value)}
+                                >
+                                    <option>All Priorities</option>
+                                    {uniquePriorities.map(p => (
+                                        <option key={p} value={p}>{p}</option>
                                     ))}
                                 </select>
                             </div>
@@ -180,6 +299,15 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                             <div className="h-6 w-px bg-slate-300 mx-2"></div>
 
                         </div>
+
+                        <div className="flex items-center gap-2">
+                            <Button variant="secondary" size="sm" className="h-9 px-4 rounded-xl text-xs font-bold gap-2">
+                                <Icons.Download className="w-3.5 h-3.5" /> Download Current View
+                            </Button>
+                            <Button variant="secondary" size="sm" className="h-9 px-4 rounded-xl text-xs font-bold gap-2 bg-slate-900 text-white border-none hover:bg-slate-800">
+                                <Icons.Download className="w-3.5 h-3.5" /> Download Complete Planner
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -188,13 +316,17 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">ID</th>
-                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-1/3">Session Headline</th>
-                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-32">Date & Time</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-20">ID</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-1/4">Session Headline</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-48">Speakers</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-44">Date & Time</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">Location</th>
                                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-28">Track</th>
                                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-28">Priority</th>
                                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-40">Assigned To</th>
                                     <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-40">Actions</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-32">Notes</th>
+                                    <th className="p-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center w-32">Add To Outlook</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -202,7 +334,19 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                                     <tr key={session.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="p-4 text-sm font-medium text-slate-500">#{session.id.toUpperCase()}</td>
                                         <td className="p-4">
-                                            <p className="text-sm font-bold text-slate-800">{session.title}</p>
+                                            <p className="text-sm font-bold text-slate-800 leading-tight">{session.title}</p>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col gap-1">
+                                                {session.speakers?.map((speaker, i) => (
+                                                    <div key={i} className="flex items-center gap-1.5">
+                                                        <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500">
+                                                            {speaker.charAt(0)}
+                                                        </div>
+                                                        <span className="text-[11px] font-medium text-slate-600 truncate max-w-[160px]">{speaker}</span>
+                                                    </div>
+                                                )) || <span className="text-[11px] text-slate-400 font-medium">Not listed</span>}
+                                            </div>
                                         </td>
                                         <td className="p-4">
                                             <p className="text-[11px] font-bold text-slate-500">
@@ -212,7 +356,15 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                                                     return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
                                                 })()}
                                             </p>
-                                            <p className="text-[11px] font-medium text-slate-400 capitalize">{session.startTime}</p>
+                                            <p className="text-[11px] font-medium text-slate-400 capitalize">{session.startTime} - {session.endTime}</p>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-1.5 text-slate-500">
+                                                <Icons.Location className="w-3.5 h-3.5 opacity-60" />
+                                                <span className="text-[11px] font-bold uppercase tracking-tight">
+                                                    {session.roomNo ? `Room ${session.roomNo}` : session.location || 'N/A'}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="p-4">
                                             <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider border-slate-200 text-slate-500 px-2 py-0.5 whitespace-nowrap">
@@ -265,6 +417,24 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                                                 </Button>
                                             </div>
                                         </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center group">
+                                                <Icons.FileText className="w-4 h-4 text-slate-300 group-hover:text-slate-500" />
+                                                <span className="ml-2 text-[10px] text-slate-400 font-medium italic">Add notes...</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <button className="p-2 bg-[#0078D4]/10 hover:bg-[#0078D4]/20 rounded-lg transition-all group" title="Add to Outlook">
+                                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M16 2.5V5.5" stroke="#0078D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M8 2.5V5.5" stroke="#0078D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M3 8.5H21" stroke="#0078D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M19 4.5H5C3.89543 4.5 3 5.39543 3 6.5V19.5C3 20.6046 3.89543 21.5 5 21.5H19C20.1046 21.5 21 20.6046 21 19.5V6.5C21 5.39543 20.1046 4.5 19 4.5Z" stroke="#0078D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M15 13.5L12 16.5L9 13.5" stroke="#0078D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M12 10.5V16.5" stroke="#0078D4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -293,8 +463,18 @@ export const PlannerView = ({ conferenceId, onNavigate }: { conferenceId?: strin
                                             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                             return `${parseInt(d)} ${months[parseInt(m) - 1]} ${y}`;
                                         })()}
-                                        • {selectedSession.startTime} - {selectedSession.endTime} • {selectedSession.location}
+                                        • {selectedSession.startTime} - {selectedSession.endTime} • {selectedSession.roomNo ? `Room ${selectedSession.roomNo}` : selectedSession.location}
                                     </p>
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {selectedSession.speakers?.map((speaker, i) => (
+                                            <div key={i} className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1">
+                                                <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">
+                                                    {speaker.charAt(0)}
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight">{speaker}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                                 <button onClick={() => setIsDetailsOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors">
                                     <Icons.X className="w-6 h-6" />
